@@ -1293,27 +1293,108 @@
             });
         });
 
-        /* ---------- Contact form: toast on submit ---------- */
-        function showToast(message) {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${message}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
-        }
-
         document.getElementById('contactForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            showToast('Message received — we\'ll get back to you shortly.');
-            e.target.reset();
-        });
 
-        document.querySelector('.newsletter-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            showToast('You\'re subscribed to updates.');
-            e.target.reset();
+            const fullName = document.getElementById('fullName').value.trim();
+            const phoneNum = document.getElementById('phoneNum').value.trim();
+            const emailAddr = document.getElementById('emailAddr').value.trim();
+            const productType = document.getElementById('productType').value;
+            const messageBox = document.getElementById('messageBox').value.trim();
+
+            if (!fullName || !phoneNum) {
+                showToast('Please fill in your name and phone number.');
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+            }
+
+            // Confirmation banner shown directly above the Send button
+            let confirmBanner = document.getElementById('formConfirmBanner');
+            if (!confirmBanner) {
+                confirmBanner = document.createElement('div');
+                confirmBanner.id = 'formConfirmBanner';
+                confirmBanner.style.cssText = 'display:none; margin-bottom:14px; padding:12px 16px; border-radius:8px; font-weight:600; text-align:center;';
+                submitBtn.parentNode.insertBefore(confirmBanner, submitBtn);
+            }
+
+            function resetButton() {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
+                }
+            }
+
+            function showBanner(success, text) {
+                confirmBanner.style.display = 'block';
+                if (success) {
+                    confirmBanner.style.background = '#d1fae5';
+                    confirmBanner.style.color = '#065f46';
+                    confirmBanner.style.border = '1px solid #10b981';
+                } else {
+                    confirmBanner.style.background = '#fee2e2';
+                    confirmBanner.style.color = '#991b1b';
+                    confirmBanner.style.border = '1px solid #ef4444';
+                }
+                confirmBanner.innerHTML = text;
+                setTimeout(() => {
+                    confirmBanner.style.display = 'none';
+                }, 5000);
+            }
+
+            // Safety timeout: if the request takes longer than 12 seconds,
+            // stop waiting and reset the form instead of hanging forever.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+            fetch('https://api.web3forms.com/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json'
+                },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    access_key: '11431bf6-5f1f-498c-b18d-7223be14d68e',
+                    subject: `New Order Inquiry - 3B Printers (${productType})`,
+                    name: fullName,
+                    phone: phoneNum,
+                    email: emailAddr || 'Not provided',
+                    product: productType,
+                    message: messageBox
+                })
+            })
+                .then((response) => response.json())
+                .then((result) => {
+                    clearTimeout(timeoutId);
+                    if (result.success) {
+                        showToast('Message received — we\'ll get back to you shortly.');
+                        showBanner(true, '✅ Your message has been sent successfully! We will get back to you shortly.');
+                        e.target.reset();
+                    } else {
+                        showToast('Something went wrong. Please try WhatsApp or call us instead.');
+                        showBanner(false, '❌ Something went wrong. Please try WhatsApp or call us instead.');
+                    }
+                    resetButton();
+                })
+                .catch((error) => {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        showToast('Taking too long. Please try WhatsApp or call us instead.');
+                        showBanner(false, '⏱️ This is taking too long. Please try WhatsApp or call us instead.');
+                    } else {
+                        showToast('Network error. Please try WhatsApp or call us instead.');
+                        showBanner(false, '❌ Network error. Please try WhatsApp or call us instead.');
+                    }
+                    resetButton();
+                });
         });
+        
     </script>
 
 </body>
